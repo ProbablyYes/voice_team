@@ -1,0 +1,27 @@
+numpy
+pandas
+transformers
+scipy
+scikit-learn
+scikit-image
+tensorboard
+tensorboardX
+python_speech_features
+resampy
+opencv_python
+face_alignment
+matplotlib
+configargparse
+librosa
+praat-parselmouth
+trimesh
+kornia
+PyMCubes
+lpips
+setuptools
+ffmpeg-python
+moviepy
+dearpygui
+ninja
+pyaudio # for extract esperanto
+mediapipe

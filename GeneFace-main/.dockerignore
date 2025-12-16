@@ -1,0 +1,36 @@
+# Exclude large data and model files
+checkpoints/
+data/
+deep_3drecon/deep_3drecon_models/
+deep_3drecon/BFM/
+
+# Exclude version control
+.git/
+.gitignore
+
+# Exclude python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Exclude IDE settings
+.vscode/
+.idea/
+
+# Exclude build artifacts
+build/
+dist/
+*.egg-info/
+
+# Exclude large media files in root (if any)
+*.mp4
+*.wav
+*.zip
+*.tar.gz
