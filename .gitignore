@@ -1,14 +1,23 @@
-# Python
-__pycache__/
-*.py[cod]
-*.so
-.Python
-build/
-dist/
-*.egg-info/
+# models & caches
+hf_cache/
+hf_models/
+model_cache/
+OpenVoice/
 
-SyncTalk/SyncTalk/
+# datasets & outputs
+GeneFace-main/egs/datasets/
+GeneFace-main/eval_runs/
+static/videos/
+static/audios/
 
-GPT-SoVITS/
+# logs
+logs/
+*.log
 
-test_data/
+# third-party / temp
+GeneFace-main/pytorch3d-main/
+GeneFace-main/third_party/
+GeneFace-main/tools/
+external/
+*.zip
+*.npy.*
