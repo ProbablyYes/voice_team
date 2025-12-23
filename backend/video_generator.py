@@ -3,6 +3,45 @@ import time
 import subprocess
 import shutil
 
+
+def _resolve_host_audio_path(ref_audio: str, project_cwd: str) -> str:
+    p = (ref_audio or "").strip().replace('\\', '/')
+    if not p:
+        raise ValueError("ref_audio 为空，请在页面填写音频路径或先用 TTS 生成 wav")
+
+    if p.startswith("http://") or p.startswith("https://"):
+        raise ValueError(f"ref_audio 不能是 URL：{p}，需要填写服务器本机文件路径")
+
+    candidates = []
+    # 1) 网页常见写法：/static/audios/xxx.wav
+    if p.startswith("/static/"):
+        candidates.append(os.path.join(project_cwd, p.lstrip('/')))
+    # 2) 相对路径：static/audios/xxx.wav
+    if p.startswith("static/"):
+        candidates.append(os.path.join(project_cwd, p))
+    # 3) 用户可能直接填容器内相对路径：data/raw/val_wavs/xxx.wav
+    if p.startswith("data/raw/val_wavs/"):
+        candidates.append(os.path.join(project_cwd, "GeneFace-main", p))
+
+    # 4) 绝对路径/相对路径兜底
+    if os.path.isabs(p):
+        candidates.append(p)
+    candidates.append(os.path.join(project_cwd, p))
+
+    # 5) 只填文件名时，默认去 static/audios/ 找
+    base = os.path.basename(p)
+    if base:
+        candidates.append(os.path.join(project_cwd, "static", "audios", base))
+
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+
+    raise FileNotFoundError(
+        "找不到 ref_audio 对应的本机文件。"
+        f" 输入值: {p}。尝试过: {candidates[:4]}..."
+    )
+
 def generate_video(data):
     """
     模拟视频生成逻辑：接收来自前端的参数，并返回一个视频路径。
@@ -72,30 +111,34 @@ def generate_video(data):
 
     elif data['model_name'] == "GeneFace":
         try:
-            # 处理音频路径
-            audio_path = data['ref_audio'].replace('\\', '/')
-            if audio_path.startswith('/'):
-                audio_path = audio_path[1:]
+            cwd = os.getcwd()
+            host_audio_path = _resolve_host_audio_path(data.get('ref_audio'), cwd)
             
             # 确保音频文件存在并复制到 GeneFace 目录
             geneface_audio_dir = os.path.join("GeneFace-main", "data", "raw", "val_wavs")
             os.makedirs(geneface_audio_dir, exist_ok=True)
             
-            audio_filename = os.path.basename(audio_path)
+            audio_filename = os.path.basename(host_audio_path)
             target_audio_path = os.path.join(geneface_audio_dir, audio_filename)
-            
-            if os.path.exists(audio_path):
-                if os.path.abspath(audio_path) != os.path.abspath(target_audio_path):
-                    shutil.copy2(audio_path, target_audio_path)
-                    print(f"[backend.video_generator] 已复制音频到: {target_audio_path}")
+
+            if os.path.abspath(host_audio_path) != os.path.abspath(target_audio_path):
+                shutil.copy2(host_audio_path, target_audio_path)
+                print(f"[backend.video_generator] 已复制音频到: {target_audio_path}")
+
+            if not os.path.exists(target_audio_path):
+                raise RuntimeError(f"音频复制失败或文件不存在: {target_audio_path}")
             
             # 容器内的相对路径
             container_audio_path = f"data/raw/val_wavs/{audio_filename}"
 
             # 计算绝对路径用于挂载
-            cwd = os.getcwd()
             geneface_dir = os.path.join(cwd, "GeneFace-main")
             geneface_abs = os.path.abspath(geneface_dir)
+
+            # 复用宿主机缓存，避免 torch.hub/face_alignment 反复联网下载
+            # face_alignment (python-fan) 默认会在 /root/.cache/torch/hub/checkpoints 下找 2DFAN4-*.zip
+            model_cache_abs = os.path.abspath(os.path.join(cwd, "model_cache"))
+            os.makedirs(model_cache_abs, exist_ok=True)
 
             # 处理 GPU 参数
             gpu_choice = data.get('gpu_choice', 'GPU0')
@@ -114,9 +157,13 @@ def generate_video(data):
             docker_cmd = ["docker", "run", "--rm"]
             if gpu_flag:
                 docker_cmd.extend(gpu_flag.split())
+
+            # 确保容器内能 import 顶层包（如 utils/）
+            docker_cmd.extend(["-e", "PYTHONPATH=/GeneFace"])
             
             docker_cmd.extend([
                 "-v", f"{geneface_abs}:/GeneFace",
+                "-v", f"{model_cache_abs}:/root/.cache/torch/hub/checkpoints",
                 "-w", "/GeneFace",
                 "geneface:latest",
                 "bash", "scripts/infer_pipeline.sh",
@@ -138,10 +185,17 @@ def generate_video(data):
             print("命令标准输出:", result.stdout)
             if result.stderr:
                 print("命令标准错误:", result.stderr)
+
+            if result.returncode != 0:
+                raise RuntimeError(
+                    "GeneFace docker 推理失败（非 0 退出码）。"
+                    f"\nstdout: {result.stdout[-4000:]}"
+                    f"\nstderr: {result.stderr[-4000:]}"
+                )
             
             # 文件原路径与目的路径
             video_id = data['model_param']
-            audio_name = os.path.splitext(os.path.basename(data['ref_audio']))[0]
+            audio_name = os.path.splitext(audio_filename)[0]
             
             source_path = os.path.join("GeneFace-main", "infer_out", video_id, "pred_video", f"{audio_name}.mp4")
             

@@ -47,12 +47,14 @@ class RADNeRFDataset(torch.utils.data.Dataset):
         elif prefix == 'val':
             self.samples = [convert_to_tensor(sample) for sample in ds_dict['val_samples']]
         elif prefix == 'trainval':
-            self.samples = [convert_to_tensor(sample) for sample in ds_dict['train_samples']] + [convert_to_tensor(sample) for sample in ds_dict['val_samples']]
-        
+            self.samples = [convert_to_tensor(sample) for sample in ds_dict['train_samples']] + [
+                convert_to_tensor(sample) for sample in ds_dict['val_samples']
+            ]
+        else:
+            raise ValueError("prefix should be in train/val/trainval!")
+
         # Sort samples by idx to ensure correct order
         self.samples.sort(key=lambda x: x['idx'])
-        else:
-            raise ValueError("prefix should in train/val !")
         self.prefix = prefix
         self.cond_type = hparams['cond_type']
         self.H = ds_dict['H']

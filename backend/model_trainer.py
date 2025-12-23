@@ -77,6 +77,11 @@ def train_model(data):
             geneface_dir = os.path.join(cwd, "GeneFace-main")
             geneface_abs = os.path.abspath(geneface_dir)
 
+            # 复用宿主机缓存，避免 torch.hub/face_alignment 反复联网下载
+            # face_alignment (python-fan) 默认会在 /root/.cache/torch/hub/checkpoints 下找 2DFAN4-*.zip
+            model_cache_abs = os.path.abspath(os.path.join(cwd, "model_cache"))
+            os.makedirs(model_cache_abs, exist_ok=True)
+
             # 处理 GPU 参数
             gpu_choice = data.get('gpu_choice', 'GPU0')
             gpu_flag = "--gpus device=0" # 默认
@@ -92,15 +97,23 @@ def train_model(data):
             # 构建 Docker 命令
             # docker run --rm {gpu_flag} -v "{geneface_abs}:/GeneFace" -w "/GeneFace" geneface:latest bash scripts/train_pipeline.sh --video_path "{container_video_path}" --epochs "{epochs}"
             
+            # 构建 Docker 命令
             docker_cmd = ["docker", "run", "--rm"]
             if gpu_flag:
                 docker_cmd.extend(gpu_flag.split())
             
-            # 添加 PYTHONUNBUFFERED=1 环境变量以禁用 Python 输出缓冲
-            docker_cmd.extend(["-e", "PYTHONUNBUFFERED=1"])
+            # 添加环境变量：
+            # 1. PYTHONUNBUFFERED=1 禁用缓冲
+            # 2. HF_ENDPOINT 使用国内镜像站下载 HuggingFace 模型
+            docker_cmd.extend([
+                "-e", "PYTHONUNBUFFERED=1",
+                "-e", "HF_ENDPOINT=https://hf-mirror.com",
+                "-e", "PYTHONPATH=/GeneFace"
+            ])
 
             docker_cmd.extend([
                 "-v", f"{geneface_abs}:/GeneFace",
+                "-v", f"{model_cache_abs}:/root/.cache/torch/hub/checkpoints",
                 "-w", "/GeneFace",
                 "geneface:latest",
                 "bash", "scripts/train_pipeline.sh",

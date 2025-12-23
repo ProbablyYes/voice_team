@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  tts:
+    build:
+      context: .
+      dockerfile: docker/tts/Dockerfile
+    container_name: voice-tts
+    
+    # ↓↓↓ 核心修改：使用主机网络模式，解决容器内无法下载模型的问题 ↓↓↓
+    network_mode: "host"
+    
+    # 主机模式下端口映射失效，直接使用服务器的 5003 端口，所以这里注释掉
+    # ports:
+    #   - "5003:5003"
+    
+    environment:
+      - HOST=0.0.0.0
+      - PORT=5003
+      - TTS_DEVICE=cpu
+      - TTS_SPEAKER_ID=0
+      - HF_HOME=/root/.cache/huggingface
+      # 允许联网
+      - HF_HUB_OFFLINE=0
+      - TRANSFORMERS_OFFLINE=0
+      # 使用官方端点，避免镜像不可用导致报错
+      - HF_ENDPOINT=https://huggingface.co
+      - TOKENIZERS_PARALLELISM=false
+      
+    volumes:
+      - ./hf_cache:/root/.cache/huggingface
+      - ./static/audios:/root/voice_team/static/audios
+      
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5003/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10

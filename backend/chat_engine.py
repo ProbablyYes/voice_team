@@ -1,110 +1,133 @@
 import os
+import uuid
 import speech_recognition as sr
 from zhipuai import ZhipuAI
+
 from backend.voice_cloner import get_voice_cloner
 from backend.video_generator import generate_video
 
+
 def chat_response(data):
     """
-    模拟实时对话系统视频生成逻辑。
+    实时对话：ASR -> LLM -> Voice Clone(TTS) -> Video
     """
     print("[backend.chat_engine] 收到数据：")
     for k, v in data.items():
         print(f"  {k}: {v}")
 
-    # 1. 语音转文字
-    # input_audio = "./static/audios/input.wav"
-    # 优先使用前端上传的 input.wav，如果不存在则回退到测试音频
+    # ---- 路径准备（避免并发覆盖）----
+    os.makedirs("./static/audios", exist_ok=True)
+    os.makedirs("./static/text", exist_ok=True)
+
+    req_id = uuid.uuid4().hex[:8]
+    input_text_path = f"./static/text/input_{req_id}.txt"
+    output_text_path = f"./static/text/output_{req_id}.txt"
+    response_audio_path = f"./static/audios/response_{req_id}.wav"
+
+    # 1) 选择输入音频
     if os.path.exists("./static/audios/input.wav"):
         input_audio = "./static/audios/input.wav"
     else:
         input_audio = "./SyncTalk/audio/aud.wav"
-        
-    input_text = "./static/text/input.txt"
-    audio_to_text(input_audio, input_text)
 
-    # 2. 大模型回答
-    output_text = "./static/text/output.txt"
-    api_key = "31af4e1567ad48f49b6d7b914b4145fb.MDVLvMiePGYLRJ7M"
-    model = "glm-4-plus"
-    ai_response_text = get_ai_response(input_text, output_text, api_key, model)
+    if not os.path.exists(input_audio):
+        raise FileNotFoundError(f"输入音频不存在: {input_audio}")
 
-    # 3. 语音克隆 (TTS)
+    # 2) ASR
+    text = audio_to_text(input_audio, input_text_path)
+    if not text:
+        raise RuntimeError("ASR 失败：未识别到文本")
+
+    # 3) LLM
+    api_key = os.getenv("ZHIPU_API_KEY")  # ✅ 环境变量
+    if not api_key:
+        raise RuntimeError("未设置环境变量 ZHIPU_API_KEY")
+
+    model = os.getenv("ZHIPU_MODEL", "glm-4-flashx")  # ✅ 默认用你想要的
+    ai_response_text = get_ai_response(input_text_path, output_text_path, api_key, model)
+    if not ai_response_text:
+        raise RuntimeError("LLM 返回为空")
+
+    # 4) 语音克隆 / TTS
     print(f"[backend.chat_engine] 开始语音克隆，使用模型: {data.get('voice_clone')}")
-    cloner = get_voice_cloner(data.get('voice_clone', 'dummy'))
-    
-    response_audio_path = "./static/audios/response.wav"
-    os.makedirs(os.path.dirname(response_audio_path), exist_ok=True)
-    
-    # 使用输入音频作为音色参考
+    cloner = get_voice_cloner(data.get("voice_clone", "dummy"))
+
     cloner.clone_voice(
         text=ai_response_text,
         ref_audio_path=input_audio,
         output_path=response_audio_path
     )
 
-    # 4. 视频生成
+    if not os.path.exists(response_audio_path):
+        raise RuntimeError("语音克隆失败：未生成 response wav")
+
+    # 5) 视频生成
     print(f"[backend.chat_engine] 开始生成视频，使用模型: {data.get('model_name')}")
+
     video_gen_data = {
-        "model_name": data.get('model_name'),
-        "model_param": data.get('model_param'),
+        "model_name": data.get("model_name"),
+        "model_param": data.get("model_param"),
         "ref_audio": response_audio_path,
-        "gpu_choice": "GPU0" # 默认使用 GPU0
+        "gpu_choice": data.get("gpu_choice", "GPU0"),  # ✅ 不要写死
+        # "target_text": None  # 如果你的 generate_video 支持可选字段，可显式传
     }
-    
+
     video_path = generate_video(video_gen_data)
-    
+    if not video_path:
+        raise RuntimeError("视频生成失败：video_path 为空")
+
     print(f"[backend.chat_engine] 流程完成，视频路径：{video_path}")
     return video_path
 
-def audio_to_text(input_audio, input_text):
+
+def audio_to_text(input_audio, input_text_path):
+    """
+    用 speech_recognition 读本地音频文件做识别
+    注意：sr.AudioFile 只支持 PCM WAV/AIFF/FLAC
+    """
+    recognizer = sr.Recognizer()
+
     try:
-        # 初始化识别器
-        recognizer = sr.Recognizer()
-        
-        # 加载音频文件
         with sr.AudioFile(input_audio) as source:
-            # 调整环境噪声
-            recognizer.adjust_for_ambient_noise(source)
-            # 读取音频数据
+            # ✅ 文件识别一般不要 adjust_for_ambient_noise（会吃掉开头）
             audio_data = recognizer.record(source)
-            
-            print("正在识别语音...")
-            
-            # 使用Google语音识别
-            text = recognizer.recognize_google(audio_data, language='zh-CN')
-            
-            # 将结果写入文件
-            with open(input_text, 'w', encoding='utf-8') as f:
-                f.write(text)
-                
-            print(f"语音识别完成！结果已保存到: {input_text}")
-            print(f"识别结果: {text}")
-            
-            return text
-            
+
+        print("[backend.chat_engine] 正在识别语音...")
+        text = recognizer.recognize_google(audio_data, language="zh-CN")
+
+        with open(input_text_path, "w", encoding="utf-8") as f:
+            f.write(text)
+
+        print(f"[backend.chat_engine] ASR 完成：{text}")
+        return text
+
     except sr.UnknownValueError:
-        print("无法识别音频内容")
+        print("[backend.chat_engine] ASR 无法识别音频内容")
+        return ""
     except sr.RequestError as e:
-        print(f"语音识别服务错误: {e}")
-    except FileNotFoundError:
-        print(f"音频文件不存在: {input_audio}")
+        # Google ASR 需要外网，服务器上很可能失败
+        raise RuntimeError(f"ASR 服务错误（Google）：{e}")
     except Exception as e:
-        print(f"发生错误: {e}")
+        raise RuntimeError(f"ASR 发生错误：{e}")
 
-def get_ai_response(input_text, output_text, api_key, model):
-    client = ZhipuAI(api_key = api_key)
-    with open(input_text, 'r', encoding='utf-8') as file:
-        content = file.read().strip()
 
-    response = client.chat.completions.create(
+def get_ai_response(input_text_path, output_text_path, api_key, model):
+    client = ZhipuAI(api_key=api_key)
+
+    with open(input_text_path, "r", encoding="utf-8") as f:
+        content = f.read().strip()
+
+    if not content:
+        raise RuntimeError("LLM 输入为空（ASR 输出为空或文件未写入）")
+
+    resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": content}]
     )
-    output = response.choices[0].message.content
 
-    with open(output_text, 'w', encoding='utf-8') as file:
-        file.write(output)
+    output = resp.choices[0].message.content or ""
+    with open(output_text_path, "w", encoding="utf-8") as f:
+        f.write(output)
 
-    print(f"答复已保存到: {output_text}")
+    print(f"[backend.chat_engine] LLM 答复已保存到: {output_text_path}")
     return output

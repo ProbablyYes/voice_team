@@ -15,10 +15,11 @@ def extract_audio(path, out_path, sample_rate=16000):
 
 
 def extract_audio_features(path):
-
     print(f'[INFO] ===== extract audio labels for {path} =====')
 
     print(f'[INFO] ===== start extract esperanto =====')
+    # 修改点：去掉之前的 --model checkpoints/esperanto，恢复使用默认的模型名称
+    # 这样配合上面的 HF_ENDPOINT 环境变量，它就会自动从镜像站下载模型
     cmd = f'python data_util/extract_esperanto.py --wav {path} --save_feats'
     os.system(cmd)
     print(f'[INFO] ===== extracted esperanto =====')

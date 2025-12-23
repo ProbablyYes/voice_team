@@ -6,6 +6,7 @@ set -e
 IMAGE_NAME="geneface:latest"
 WORKSPACE="/GeneFace"
 GENEFACE_DIR="./GeneFace-main" # Host directory
+MODEL_CACHE_DIR="./model_cache" # Host directory (shared torch hub checkpoints)
 
 # Mock docker for testing if needed, similar to SyncTalk
 mock_docker() {
@@ -66,6 +67,7 @@ if [ "$mode" == "train" ]; then
 
     gpu_param=$(parse_gpu_arg "$gpu_arg")
     geneface_abs=$(realpath "$GENEFACE_DIR")
+    model_cache_abs=$(realpath "$MODEL_CACHE_DIR" 2>/dev/null || true)
     
     # Ensure directories exist
     mkdir -p "$GENEFACE_DIR/data"
@@ -82,6 +84,7 @@ if [ "$mode" == "train" ]; then
     
     mock_docker run --rm $gpu_param \
         -v "$geneface_abs:$WORKSPACE" \
+        ${model_cache_abs:+-v "$model_cache_abs:/root/.cache/torch/hub/checkpoints"} \
         -w "$WORKSPACE" \
         $IMAGE_NAME \
         bash scripts/train_pipeline.sh --video_path "$video_path" --epochs "$epochs"
@@ -130,6 +133,7 @@ elif [ "$mode" == "infer" ]; then
 
     gpu_param=$(parse_gpu_arg "$gpu_arg")
     geneface_abs=$(realpath "$GENEFACE_DIR")
+    model_cache_abs=$(realpath "$MODEL_CACHE_DIR" 2>/dev/null || true)
 
     echo "Starting GeneFace inference..."
     echo "Model: $model_dir"
@@ -138,6 +142,7 @@ elif [ "$mode" == "infer" ]; then
 
     mock_docker run --rm $gpu_param \
         -v "$geneface_abs:$WORKSPACE" \
+        ${model_cache_abs:+-v "$model_cache_abs:/root/.cache/torch/hub/checkpoints"} \
         -v "$audio_dir:$container_audio_dir" \
         -w "$WORKSPACE" \
         $IMAGE_NAME \

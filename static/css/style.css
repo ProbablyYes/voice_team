@@ -1,87 +1,104 @@
-/* ========== 视频生成界面布局 ========== */
-.video-page-container {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    gap: 60px;
-    margin: 40px auto;
-    max-width: 1100px;
+/* ===== 全局基础 ===== */
+body {
+    margin: 0;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    transition: background-color 0.3s, color 0.3s;
 }
 
-/* 左边视频 */
-.video-display {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 80px 24px;
 }
 
-.video-display video {
-    border-radius: 12px;
-    box-shadow: 0 0 10px rgba(100, 100, 100, 0.3);
+/* ===== Header ===== */
+.header {
+    margin-bottom: 64px;
 }
-
-/* 右边表单 */
-.form-section {
-    flex: 1;
-    background-color: #f9d9c7;
-    padding: 25px 30px;
-    border-radius: 16px;
-    box-shadow: 0 0 8px rgba(0,0,0,0.15);
-    text-align: left;
-}
-
-.form-section form {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-}
-
-label {
-    font-weight: bold;
-    margin-bottom: 5px;
-}
-
-input, select, textarea {
-    width: 100%;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    font-size: 15px;
-    box-sizing: border-box;
-}
-
-textarea {
-    height: 80px;
-    resize: none;
-}
-
-.generate-btn {
-    background-color: #f1834b;
-    color: white;
-    font-size: 16px;
-    border: none;
-    border-radius: 10px;
-    padding: 12px 20px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.generate-btn:hover {
-    background-color: #e06b2f;
-}
-
-/* 页面标题通用样式 */
-h2 {
-    text-align: center;
-    font-size: 26px;
+.header h1 {
+    font-size: 2.4rem;
     font-weight: 600;
-    margin-top: 30px;
-    margin-bottom: 20px;
-    color: #333;
+    margin-bottom: 14px;
+}
+.header p {
+    font-size: 1.05rem;
+    color: var(--text-sub);
+    max-width: 760px;
+    line-height: 1.7;
+}
+.tag {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 6px 16px;
+    font-size: 0.85rem;
+    border-radius: 999px;
+    background-color: var(--primary-light);
+    color: var(--primary);
+    font-weight: 500;
+}
+
+/* ===== 模块卡片 ===== */
+.modules {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 30px;
+}
+.card {
+    background: var(--card-bg);
+    border-radius: 14px;
+    padding: 30px 28px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.06);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    cursor: pointer;
+    border-top: 4px solid var(--primary);
+}
+.card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.1);
+}
+.card h2 {
+    font-size: 1.3rem;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+.card p {
+    font-size: 0.95rem;
+    color: var(--text-sub);
+    line-height: 1.7;
+    margin-bottom: 18px;
+}
+.card span {
+    font-size: 0.9rem;
+    color: var(--primary);
+    font-weight: 500;
+}
+
+/* ===== Footer ===== */
+.footer {
+    margin-top: 90px;
+    font-size: 0.85rem;
+    color: #9ca3af;
+    text-align: center;
+}
+
+/* ===== Theme Toggle Button ===== */
+.theme-toggle {
+    position: fixed;
+    top: 24px;
+    right: 32px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--card-bg);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    cursor: pointer;
+    font-size: 20px;
+    transition: transform 0.2s, background-color 0.3s;
+}
+.theme-toggle:hover {
+    transform: translateY(-2px);
 }

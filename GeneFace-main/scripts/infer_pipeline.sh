@@ -62,7 +62,7 @@ echo "Using Postnet Checkpoint Steps: $ckpt_steps"
 echo "Running Postnet Inference..."
 python inference/postnet/postnet_infer.py \
     --config="${ckpt_dir}/config.yaml" \
-    --hparams="infer_audio_source_name=data/raw/val_wavs/${audio_filename},infer_out_npy_name=infer_out/${video_id}/pred_lm3d/${audio_name}.npy,infer_ckpt_steps=${ckpt_steps}" \
+    --hparams="infer_audio_source_name=data/raw/val_wavs/${audio_filename},infer_out_npy_name=infer_out/${video_id}/pred_lm3d/${audio_name}.npy,infer_ckpt_steps=${ckpt_steps},video_id=${video_id}" \
     --reset
 
 # 3. Infer RAD-NeRF (Rendering)
@@ -82,7 +82,7 @@ output_video="infer_out/${video_id}/pred_video/${audio_name}.mp4"
 
 python inference/nerfs/lm3d_radnerf_infer.py \
     --config="${radnerf_dir}/config.yaml" \
-    --hparams="infer_audio_source_name=data/raw/val_wavs/${audio_filename},infer_cond_name=infer_out/${video_id}/pred_lm3d/${audio_name}.npy,infer_out_video_name=${output_video}" \
+    --hparams="infer_audio_source_name=data/raw/val_wavs/${audio_filename},infer_cond_name=infer_out/${video_id}/pred_lm3d/${audio_name}.npy,infer_out_video_name=${output_video},video_id=${video_id}" \
     --infer
 
 echo "Inference Completed!"

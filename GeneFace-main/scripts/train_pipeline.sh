@@ -45,10 +45,22 @@ else
     done
 fi
 
-# Run data processing
-# Assuming we are in /GeneFace (workspace)
-# process_data.sh expects VIDEO_ID
-bash data_gen/nerf/process_data.sh "$video_id"
+# 修改点：加入断点机制。检查预处理的终产物是否存在，存在则跳过。
+processed_dataset="data/binary/videos/$video_id/trainval_dataset.npy"
+
+if [ -f "$processed_dataset" ]; then
+    echo "[INFO] 预处理产物 $processed_dataset 已存在，跳过数据预处理步骤。"
+else
+    echo "[INFO] 未发现预处理数据，开始运行 process_data.sh..."
+    # Run data processing
+    bash data_gen/nerf/process_data.sh "$video_id"
+    
+    # 处理完后检查是否生成成功
+    if [ ! -f "$processed_dataset" ]; then
+        echo "Error: 预处理执行完毕，但未发现产物 $processed_dataset，请检查日志。"
+        exit 1
+    fi
+fi
 
 # 3. Train Postnet
 echo "Training Postnet..."
