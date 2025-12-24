@@ -1,0 +1,87 @@
+/* ===== 日间模式 ===== */
+body[data-theme="light"] {
+    --primary: #2563eb;
+    --primary-light: #e0ecff;
+    --text-main: #1f2937;
+    --text-sub: #4b5563;
+    --bg-main: #f3f6fa;
+    --card-bg: #ffffff;
+    --border-light: #e5e7eb;
+}
+
+/* ===== 夜间模式 ===== */
+body[data-theme="dark"] {
+    --primary: #60a5fa;
+    --primary-light: rgba(96,165,250,0.15);
+    --text-main: #e5e7eb;
+    --text-sub: #9ca3af;
+    --bg-main: #0f172a;
+    --card-bg: #1e293b;
+    --border-light: #334155;
+}
+
+/* ===== 公共样式 ===== */
+body {
+    margin: 0;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* Header */
+.header h1 {
+    color: var(--text-main);
+}
+.header p {
+    color: var(--text-sub);
+}
+
+/* Tag */
+.tag {
+    background-color: var(--primary-light);
+    color: var(--primary);
+}
+
+/* Card */
+.card {
+    background-color: var(--card-bg);
+    border-radius: 14px;
+    padding: 30px 28px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.06);
+    border-top: 4px solid var(--primary);
+    transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+.card h2 {
+    color: var(--text-main);
+}
+.card p {
+    color: var(--text-sub);
+}
+.card span {
+    color: var(--primary);
+}
+
+/* Footer */
+.footer {
+    color: var(--text-sub);
+}
+
+/* Theme toggle button */
+.theme-toggle {
+    position: fixed;
+    top: 24px;
+    right: 32px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--card-bg);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    cursor: pointer;
+    font-size: 20px;
+    transition: transform 0.2s, background-color 0.3s;
+}
+.theme-toggle:hover {
+    transform: translateY(-2px);
+}
