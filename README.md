@@ -1,5 +1,15 @@
 # 说话人脸生成对话系统（Docker 部署与复现文档）
 
+## 重要：当前分支的目录结构
+
+本分支已按要求调整为：仓库根目录只保留 `README.md` 与 `GENEFACE/`。
+
+因此，**除非特别说明，本文档所有命令都假设你先进入 `GENEFACE/` 再执行**：
+
+```bash
+cd GENEFACE
+```
+
 本项目包含三个主要功能（与课程 demo 对齐）：
 - **模型训练**：基于 `GeneFace` 训练指定人物的说话人脸模型
 - **视频生成/推理**：输入人物模型 + 驱动音频，生成说话视频
@@ -52,7 +62,7 @@
 ### 1.2 构建 GeneFace 镜像（`geneface:latest`）
 `backend/model_trainer.py` 和 `backend/video_generator.py` 都写死使用镜像名：**`geneface:latest`**，所以必须构建该 tag。
 
-在仓库根目录执行：
+在仓库根目录执行（先 `cd GENEFACE`）：
 
 ```bash
 docker build -t geneface:latest -f GeneFace-main/Dockerfile GeneFace-main
@@ -63,7 +73,7 @@ docker build -t geneface:latest -f GeneFace-main/Dockerfile GeneFace-main
 - **编译扩展很慢/容易 OOM**：`GeneFace-main/Dockerfile` 里已设置 `MAX_JOBS=1`，仍建议保证足够内存。
 
 ### 1.3 启动 TTS（Docker，端口 5003）
-在仓库根目录执行：
+在仓库根目录执行（先 `cd GENEFACE`）：
 
 ```bash
 docker compose up -d tts
@@ -185,7 +195,7 @@ export ZHIPU_MODEL="glm-4-flashx"
 - **LSE-C / LSE-D**：预留接口（默认 `null`，见 3.2.4）
 
 ### 3.2.2 构建评测镜像
-在仓库根目录执行：
+在仓库根目录执行（先 `cd GENEFACE`）：
 
 ```bash
 docker build -t talkingface-eval:latest -f docker/eval/Dockerfile .
