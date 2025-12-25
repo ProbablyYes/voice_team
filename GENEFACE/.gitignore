@@ -1,0 +1,23 @@
+# models & caches
+hf_cache/
+hf_models/
+model_cache/
+OpenVoice/
+
+# datasets & outputs
+GeneFace-main/egs/datasets/
+GeneFace-main/eval_runs/
+static/videos/
+static/audios/
+
+# logs
+logs/
+*.log
+
+# third-party / temp
+GeneFace-main/pytorch3d-main/
+GeneFace-main/third_party/
+GeneFace-main/tools/
+external/
+*.zip
+*.npy.*

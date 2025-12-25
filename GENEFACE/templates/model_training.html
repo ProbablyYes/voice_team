@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>模型训练 · 说话人脸生成系统</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+
+    <style>
+        /* 页面布局 */
+        .page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 60px 24px 80px;
+        }
+
+        .header { margin-bottom: 36px; }
+        .header h1 { font-size: 2rem; font-weight: 600; margin-bottom: 10px; color: var(--text-main); }
+        .header p { font-size: 0.95rem; color: var(--text-sub); }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 32px;
+            margin-top: 32px;
+        }
+
+        /* 卡片基础样式 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.06);
+            transition: background-color 0.3s, color 0.3s, transform 0.2s;
+        }
+
+        .video-card h2, .form-card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 18px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .video-card video {
+            width: 100%;
+            border-radius: 10px;
+            background: #000;
+        }
+
+        /* 表单控件适配 */
+        .form-group { margin-bottom: 18px; }
+        .form-group label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            background-color: var(--card-bg); /* 跟随主题背景 */
+            color: var(--text-main);           /* 跟随主题文字 */
+            outline: none;
+            font-family: inherit;
+            box-sizing: border-box;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+
+        /* 按钮样式 */
+        .submit-btn {
+            margin-top: 12px;
+            width: 100%;
+            padding: 12px 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #ffffff;
+            background-color: var(--primary);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .submit-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .submit-btn:active { transform: translateY(0); }
+
+        /* 返回按钮 */
+        .back-btn {
+            position: fixed;
+            top: 24px;
+            right: 100px; /* 避开右侧的主题切换按钮 */
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--primary);
+            background-color: var(--card-bg);
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .back-btn:hover {
+            background-color: var(--primary);
+            color: #ffffff;
+        }
+
+        .footer {
+            margin-top: 80px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-sub);
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 850px) {
+            .content { grid-template-columns: 1fr; }
+            .back-btn { right: 24px; top: auto; bottom: 24px; }
+        }
+    </style>
+</head>
+
+<body>
+<button class="theme-toggle" id="themeToggle" title="切换昼夜模式">🌙</button>
+
+<button class="back-btn" onclick="window.location.href='/'">
+    ← 返回主菜单
+</button>
+
+<div class="page">
+
+    <div class="header">
+        <h1>模型训练</h1>
+        <p>
+            上传单一说话人视频，自动完成音频与人脸特征预处理，
+            并基于 GeneFace 模型训练个性化说话人脸生成模型。
+        </p>
+    </div>
+
+    <div class="content">
+
+        <div class="card video-card">
+            <h2>训练过程 / 参考视频预览</h2>
+            <video id="trainVideo" controls>
+                <source src="{{ url_for('static', filename='videos/lady.mp4') }}" type="video/mp4">
+            </video>
+        </div>
+
+        <div class="card form-card">
+            <h2>训练参数设置</h2>
+
+            <form id="trainForm">
+                <div class="form-group">
+                    <label>模型选择</label>
+                    <select name="model_choice">
+                        <option value="GeneFace">GeneFace（推荐）</option>
+                        <option value="SyncTalk">SyncTalk</option>
+                        <option value="modelA">Model A</option>
+                        <option value="modelB">Model B</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>参考视频 / 图像路径</label>
+                    <input type="text" name="ref_video" placeholder="如：static/videos/lady.mp4">
+                </div>
+
+                <div class="form-group">
+                    <label>GPU 选择</label>
+                    <select name="gpu_choice">
+                        <option value="GPU0">GPU 0</option>
+                        <option value="GPU1">GPU 1</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>训练轮数（Epoch）</label>
+                    <input type="number" name="epoch" min="1" value="10">
+                </div>
+
+                <div class="form-group">
+                    <label>自定义训练参数（可选）</label>
+                    <textarea name="custom_params" placeholder="如 batch_size、学习率等高级参数"></textarea>
+                </div>
+
+                <button type="submit" class="submit-btn">开始训练</button>
+            </form>
+        </div>
+
+    </div>
+
+    <div class="footer">
+        © 2025 语音识别与合成课程设计 · 模型训练模块
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+<script>
+
+    document.getElementById('trainForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+
+        const refVideoPath = formData.get('ref_video');
+        const videoEl = document.getElementById('trainVideo');
+
+        if (refVideoPath) {
+            const newSrc = "/" + refVideoPath.replace("\\", "/") + '?t=' + new Date().getTime();
+            videoEl.src = newSrc;
+            videoEl.load();
+            videoEl.play().catch(e => console.log('自动播放可能被阻止:', e));
+        }
+
+        fetch('/model_training', {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('训练完成！');
+                }
+            })
+            .catch(err => console.error('错误:', err));
+    });
+</script>
+
+</body>
+</html>

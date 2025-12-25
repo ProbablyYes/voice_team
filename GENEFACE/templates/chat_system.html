@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>实时对话 · 说话人脸生成系统</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+
+    <style>
+        .page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 60px 24px 80px;
+        }
+
+        .header { margin-bottom: 36px; }
+        .header h1 { font-size: 2rem; font-weight: 600; margin-bottom: 10px; color: var(--text-main); }
+        .header p { font-size: 0.95rem; color: var(--text-sub); line-height: 1.6; }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 32px;
+            margin-top: 32px;
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.06);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .video-card h2, .form-card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 18px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        /* 录音区域特别处理 */
+        .voice-recorder {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .record-btn {
+            padding: 12px 28px;
+            border-radius: 999px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            background-color: #ef4444; /* 录音准备状态保持红色 */
+            color: #fff;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .record-btn.recording {
+            background-color: #22c55e; /* 正在录音状态保持绿色 */
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+            70% { box-shadow: 0 0 0 12px rgba(34,197,94,0); }
+            100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+        }
+
+        .timer {
+            margin-top: 10px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-main);
+            font-family: monospace;
+        }
+
+        .status-message {
+            margin-top: 6px;
+            font-size: 0.85rem;
+            color: var(--text-sub);
+        }
+
+        /* 录音指示器 */
+        .recording-indicator {
+            margin-top: 10px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--text-sub);
+        }
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: #ef4444;
+            box-shadow: 0 0 0 0 rgba(239,68,68,0.6);
+            animation: dotPulse 1.2s infinite;
+        }
+        @keyframes dotPulse {
+            0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6); }
+            70% { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+            100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+        }
+
+        video {
+            width: 100%;
+            border-radius: 10px;
+            background: #000;
+        }
+
+        /* 音频预览面板 */
+        .audio-panel {
+            margin-top: 16px;
+            text-align: left;
+            background: rgba(0,0,0,0.02);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 14px 14px 12px;
+        }
+        .audio-panel-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 10px;
+        }
+        .sliders {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .slider-label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+        }
+        .slider-value {
+            font-size: 0.8rem;
+            color: var(--text-sub);
+            margin-top: 4px;
+        }
+        .audio-hint {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: var(--text-sub);
+        }
+
+        /* 表单控件适配 */
+        .form-group { margin-bottom: 18px; }
+        .form-group label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 12px 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+            background-color: var(--primary);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .submit-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        /* 返回按钮适配 */
+        .back-btn {
+            position: fixed;
+            top: 24px;
+            right: 100px; /* 避开主题按钮 */
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--primary);
+            background-color: var(--card-bg);
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .back-btn:hover {
+            background-color: var(--primary);
+            color: #ffffff;
+        }
+
+        .footer {
+            margin-top: 80px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-sub);
+        }
+
+        @media (max-width: 850px) {
+            .content { grid-template-columns: 1fr; }
+            .sliders { grid-template-columns: 1fr; }
+            .back-btn { right: 24px; top: auto; bottom: 24px; }
+        }
+    </style>
+</head>
+
+<body>
+
+<button class="theme-toggle" id="themeToggle" title="切换昼夜模式">🌙</button>
+
+<button class="back-btn" onclick="window.location.href='/'">
+    ← 返回主菜单
+</button>
+
+<div class="page">
+
+    <div class="header">
+        <h1>实时语音对话</h1>
+        <p>
+            支持语音录制、语音识别、语音克隆与说话人脸视频生成，实现端到端的实时人机交互体验。
+        </p>
+    </div>
+
+    <div class="content">
+
+        <div class="card video-card">
+            <h2>语音输入与生成结果</h2>
+
+            <div class="voice-recorder">
+                <button id="recordButton" class="record-btn">● 开始录音</button>
+                <div class="timer" id="timer">00:00</div>
+
+                <div class="recording-indicator" id="recordingIndicator">
+                    <span class="dot"></span>
+                    <span>REC</span>
+                </div>
+
+                <div class="status-message" id="statusMessage">准备就绪</div>
+
+                <!-- ✅ 新增：input.wav 预览 + 音量/语速控制 -->
+                <div class="audio-panel">
+                    <div class="audio-panel-title">参考音频预览（input.wav）</div>
+
+                    <audio id="wavPlayer" controls style="width:100%;"></audio>
+
+                    <div class="sliders">
+                        <div>
+                            <label class="slider-label">音量（0~200%）</label>
+                            <input id="volumeSlider" type="range" min="0" max="2" step="0.01" value="1" style="width:100%;">
+                            <div class="slider-value" id="volumeValue">100%</div>
+                        </div>
+                        <div>
+                            <label class="slider-label">语速</label>
+                            <input id="pitchSlider" type="range" min="0.5" max="2" step="0.01" value="1" style="width:100%;">
+                            <div class="slider-value" id="pitchValue">1.00x</div>
+                        </div>
+                    </div>
+
+                    <div class="audio-hint" id="wavHint">正在检查是否存在 input.wav…</div>
+                </div>
+            </div>
+
+            <video id="chatVideo" controls>
+                <source src="{{ url_for('static', filename='videos/lady.mp4') }}" type="video/mp4">
+            </video>
+        </div>
+
+        <div class="card form-card">
+            <h2>对话参数设置</h2>
+
+            <form id="chatForm">
+                <div class="form-group">
+                    <label>说话人模型</label>
+                    <select name="model_name">
+                        <option value="GeneFace">GeneFace（推荐）</option>
+                        <option value="SyncTalk">SyncTalk</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>模型目录路径</label>
+                    <input type="text" name="model_param" placeholder="如 checkpoints/May">
+                </div>
+
+                <div class="form-group">
+                    <label>语音克隆模型</label>
+                    <select name="voice_clone">
+                        <option value="OpenVoice">OpenVoice</option>
+                        <option value="SV2TTS">SV2TTS</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>对话接口</label>
+                    <select name="api_choice">
+                        <option value="openai">OpenAI API</option>
+                        <option value="azure">Azure Speech</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="submit-btn">开始对话</button>
+            </form>
+        </div>
+
+    </div>
+
+    <div class="footer">
+        © 2025 语音识别与合成课程设计 · 实时对话模块
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+
+<script>
+    // =========================
+    // 录音功能（保持你的逻辑，修复后更稳）
+    // =========================
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+    let startTime = 0;
+    let timerInterval = null;
+
+    const recordButton = document.getElementById('recordButton');
+    const timerDisplay = document.getElementById('timer');
+    const recordingIndicator = document.getElementById('recordingIndicator');
+    const statusMessage = document.getElementById('statusMessage');
+
+    function formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function updateTimer() {
+        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+        timerDisplay.textContent = formatTime(elapsedSeconds);
+    }
+
+    function pickMimeType() {
+        const candidates = [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/ogg;codecs=opus',
+            'audio/ogg'
+        ];
+        return candidates.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
+    }
+
+    async function startRecording() {
+        try {
+            statusMessage.textContent = '请求麦克风权限...';
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            const mimeType = pickMimeType();
+            mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                try {
+                    statusMessage.textContent = '录音完成，正在上传...';
+
+                    const finalType = mediaRecorder.mimeType || 'audio/webm';
+                    const ext = finalType.includes('ogg') ? 'ogg' : 'webm';
+                    const audioBlob = new Blob(audioChunks, { type: finalType });
+
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, `input.${ext}`);
+
+                    const resp = await fetch('/save_audio', { method: 'POST', body: formData });
+                    const raw = await resp.text();
+                    let data = null;
+                    try { data = JSON.parse(raw); } catch (e) {}
+
+                    if (resp.ok && data && data.status === 'success') {
+                        statusMessage.textContent = '录音已保存';
+                        // ✅ 录音保存后刷新 input.wav 预览（如果后端仍固定存 input.wav）
+                        loadInputWavIfExists();
+                    } else {
+                        statusMessage.textContent = '保存录音失败（请查看控制台）';
+                        console.error('save_audio response:', raw);
+                    }
+                } catch (e) {
+                    console.error('保存录音错误:', e);
+                    statusMessage.textContent = `保存录音时出错：${e.message || e}`;
+                } finally {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+
+            recordButton.innerHTML = '<span>■</span> 停止录音';
+            recordButton.classList.add('recording');
+            if (recordingIndicator) recordingIndicator.style.display = 'flex';
+            statusMessage.textContent = '正在录音...';
+
+            startTime = Date.now();
+            timerDisplay.textContent = '00:00';
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+
+        } catch (error) {
+            console.error('录音启动失败:', error);
+            statusMessage.textContent = `录音启动失败：${error.name || ''} ${error.message || error}`;
+        }
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && isRecording) {
+            mediaRecorder.stop();
+            isRecording = false;
+
+            recordButton.innerHTML = '<span>●</span> 开始录音';
+            recordButton.classList.remove('recording');
+
+            if (recordingIndicator) recordingIndicator.style.display = 'none';
+            statusMessage.textContent = '录音完成，正在处理...';
+
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+    }
+
+    recordButton.addEventListener('click', () => {
+        if (!isRecording) startRecording();
+        else stopRecording();
+    });
+
+    // =========================
+    // input.wav 预览 + 音量/音高控制
+    // 说明：音高用 playbackRate（简易，会影响语速）；音量用 GainNode 支持 >100%
+    // =========================
+    const wavPlayer = document.getElementById('wavPlayer');
+    const wavHint = document.getElementById('wavHint');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const volumeValue = document.getElementById('volumeValue');
+    const pitchSlider = document.getElementById('pitchSlider');
+    const pitchValue = document.getElementById('pitchValue');
+
+    let audioCtx = null;
+    let sourceNode = null;
+    let gainNode = null;
+
+    function ensureAudioGraph() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            sourceNode = audioCtx.createMediaElementSource(wavPlayer);
+            gainNode = audioCtx.createGain();
+            sourceNode.connect(gainNode).connect(audioCtx.destination);
+        }
+    }
+
+    function setVolumeUI(v) {
+        volumeValue.textContent = `${Math.round(v * 100)}%`;
+    }
+
+    function setPitchUI(r) {
+        pitchValue.textContent = `${Number(r).toFixed(2)}x`;
+    }
+
+    async function loadInputWavIfExists() {
+        try {
+            // 你需要在后端 app.py 增加 /audio_exists 接口：
+            // return jsonify({"exists": True/False, "url": "/static/audios/input.wav"})
+            const resp = await fetch('/audio_exists', { method: 'GET' });
+            const data = await resp.json();
+
+            if (!data.exists) {
+                wavHint.textContent = '暂无 input.wav：请先录音或上传生成。';
+                wavPlayer.removeAttribute('src');
+                wavPlayer.load();
+                return;
+            }
+
+            wavPlayer.src = data.url + '?t=' + Date.now(); // 防缓存
+            wavPlayer.load();
+
+            wavHint.textContent = '已加载 input.wav，可播放预览。';
+
+            ensureAudioGraph();
+
+            // 应用当前滑块设置
+            gainNode.gain.value = parseFloat(volumeSlider.value);
+            wavPlayer.playbackRate = parseFloat(pitchSlider.value);
+
+        } catch (e) {
+            console.error(e);
+            wavHint.textContent = '检查 input.wav 失败：请确认后端已添加 /audio_exists 接口。';
+        }
+    }
+
+    volumeSlider.addEventListener('input', () => {
+        const v = parseFloat(volumeSlider.value);
+        setVolumeUI(v);
+        ensureAudioGraph();
+        gainNode.gain.value = v;
+    });
+
+    pitchSlider.addEventListener('input', () => {
+        const r = parseFloat(pitchSlider.value);
+        setPitchUI(r);
+        wavPlayer.playbackRate = r; // 简易变调：会影响语速
+    });
+
+    // 页面初次加载
+    setVolumeUI(parseFloat(volumeSlider.value));
+    setPitchUI(parseFloat(pitchSlider.value));
+    loadInputWavIfExists();
+
+    // =========================
+    // 对话提交：更新视频
+    // =========================
+    document.getElementById('chatForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+
+        fetch('/chat_system', {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const videoEl = document.getElementById('chatVideo');
+                    const newSrc = data.video_path + '?t=' + new Date().getTime();
+
+                    const source = videoEl.querySelector('source');
+                    if (source) source.src = newSrc;
+                    videoEl.src = newSrc;
+
+                    videoEl.load();
+                    videoEl.play().catch(() => {});
+                    alert('对话完成！');
+                } else {
+                    alert(data.message || '对话失败');
+                }
+            })
+            .catch(err => {
+                console.error('错误:', err);
+                alert('请求失败，请查看控制台');
+            });
+    });
+</script>
+</body>
+</html>

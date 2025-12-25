@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>视频生成 · 说话人脸生成系统</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+
+  <style>
+    .page { max-width: 1100px; margin: 0 auto; padding: 60px 24px 80px; }
+    .header { margin-bottom: 36px; }
+    .header h1 { font-size: 2rem; font-weight: 600; margin-bottom: 10px; color: var(--text-main); }
+    .header p { font-size: 0.95rem; color: var(--text-sub); line-height: 1.6; }
+
+    .content { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 32px; margin-top: 32px; }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 14px;
+      padding: 24px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.06);
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .video-card h2, .form-card h2 {
+      font-size: 1.1rem;
+      margin-bottom: 18px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .video-card video { width: 100%; border-radius: 10px; background: #000; }
+
+    .form-group { margin-bottom: 18px; }
+    .form-group label {
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-light);
+      background-color: var(--card-bg);
+      color: var(--text-main);
+      outline: none;
+      font-family: inherit;
+      box-sizing: border-box;
+      transition: all 0.3s;
+    }
+
+    .form-group textarea { resize: vertical; min-height: 90px; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 850px) { .content { grid-template-columns: 1fr; } .row { grid-template-columns: 1fr; } }
+
+    .submit-btn, .secondary-btn {
+      margin-top: 10px;
+      width: 100%;
+      padding: 12px 0;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .submit-btn { color: #fff; background-color: var(--primary); }
+    .submit-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    .secondary-btn {
+      color: var(--primary);
+      background-color: transparent;
+      border: 1px solid var(--primary);
+    }
+    .secondary-btn:hover { background-color: var(--primary); color:#fff; transform: translateY(-1px); }
+
+    .btn-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+    @media (max-width: 850px) { .btn-inline { grid-template-columns: 1fr; } }
+
+    .back-btn {
+      position: fixed;
+      top: 24px;
+      right: 100px;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--primary);
+      background-color: var(--card-bg);
+      border: 1px solid var(--primary);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+      z-index: 100;
+    }
+    .back-btn:hover { background-color: var(--primary); color: #fff; }
+    @media (max-width: 850px) { .back-btn { right: 24px; top: auto; bottom: 24px; } }
+
+    .hint {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-light);
+      color: var(--text-main);
+      font-size: 0.9rem;
+      display: none;
+      white-space: pre-wrap;
+    }
+
+    .audio-wrap {
+      margin-top: 14px;
+      display: none;
+    }
+    .audio-wrap audio { width: 100%; }
+    .audio-actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .link-btn {
+      font-size: 0.9rem;
+      color: var(--primary);
+      text-decoration: none;
+      border: 1px solid var(--primary);
+      padding: 6px 12px;
+      border-radius: 999px;
+      transition: all 0.2s ease;
+    }
+    .link-btn:hover { background: var(--primary); color: #fff; }
+
+    .footer { margin-top: 80px; text-align: center; font-size: 0.85rem; color: var(--text-sub); }
+  </style>
+</head>
+
+<body>
+  <button class="theme-toggle" id="themeToggle" title="切换昼夜模式">🌙</button>
+
+  <button class="back-btn" onclick="window.location.href='/'">← 返回主菜单</button>
+
+  <div class="page">
+    <div class="header">
+      <h1>视频生成</h1>
+      <p>方案A：先点“仅测试 TTS”生成 wav，系统会自动把 wav 路径写入“参考音频路径(ref_audio)”，然后再点“开始生成视频”。</p>
+    </div>
+
+    <div class="content">
+      <div class="card video-card">
+        <h2>生成结果预览</h2>
+
+        <video id="outputVideo" controls>
+          <source src="{{ url_for('static', filename='videos/lady.mp4') }}" type="video/mp4">
+        </video>
+
+        <div class="audio-wrap" id="audioWrap">
+          <div class="hint">TTS 音频预览（TTS 成功后出现）</div>
+          <audio id="ttsAudio" controls></audio>
+          <div class="audio-actions">
+            <a id="downloadWav" class="link-btn" href="#" download>下载 wav</a>
+            <a class="link-btn" href="/tts_test">打开独立 TTS 测试页</a>
+          </div>
+        </div>
+
+        <div class="status" id="statusBox"></div>
+      </div>
+
+      <div class="card form-card">
+        <h2>生成参数设置</h2>
+
+        <form id="videoForm">
+          <div class="form-group">
+            <label>模型类型</label>
+            <select name="model_name">
+              <option value="GeneFace">GeneFace（推荐）</option>
+              <option value="SyncTalk">SyncTalk</option>
+              <option value="model1">Model 1</option>
+              <option value="model2">Model 2</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>模型ID（checkpoints 子目录名）</label>
+            <input type="text" name="model_param" placeholder="如：May 或 lady">
+          </div>
+
+          <div class="form-group">
+            <label>参考音频路径（ref_audio）</label>
+            <input type="text" name="ref_audio" id="refAudioInput" placeholder="如：static/audios/input.wav 或 static/audios/tts.wav">
+            <div class="hint">方案A：点完“仅测试 TTS”，这里会自动变成 static/audios/tts.wav（后端可直接读取）。</div>
+          </div>
+
+          <div class="row">
+            <div class="form-group">
+              <label>GPU 选择</label>
+              <select name="gpu_choice">
+                <option value="GPU0">GPU 0</option>
+                <option value="GPU1">GPU 1</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>（可选）TTS Speaker ID</label>
+              <input type="number" name="speaker_id" value="0" min="0" step="1">
+              <div class="hint">用于 TTS 选择说话人（是否生效取决于你的 TTS 服务）。</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>目标文本（用于 TTS）</label>
+            <textarea name="target_text" id="targetText" placeholder="先输入要合成的内容，然后点“仅测试 TTS 生成 wav”"></textarea>
+          </div>
+
+          <div class="btn-inline">
+            <button type="submit" class="submit-btn" id="genBtn">开始生成视频</button>
+            <button type="button" class="secondary-btn" id="ttsBtn">仅测试 TTS 生成 wav</button>
+          </div>
+
+          <div class="hint">
+            流程：① 输入目标文本 → ② 点“仅测试TTS” → ③ 系统自动回填 ref_audio → ④ 点“开始生成视频”
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="footer">© 2025 语音识别与合成课程设计 · 视频生成模块</div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+
+  <script>
+    const statusBox = document.getElementById('statusBox');
+    const audioWrap = document.getElementById('audioWrap');
+    const ttsAudio = document.getElementById('ttsAudio');
+    const downloadWav = document.getElementById('downloadWav');
+    const genBtn = document.getElementById('genBtn');
+    const ttsBtn = document.getElementById('ttsBtn');
+
+    const refAudioInput = document.getElementById('refAudioInput');
+    const targetTextEl = document.getElementById('targetText');
+
+    function setStatus(msg, show=true) {
+      statusBox.textContent = msg || "";
+      statusBox.style.display = show ? "block" : "none";
+    }
+
+    function showAudio(url) {
+      if (!url) return;
+      const bust = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+      ttsAudio.src = bust;
+      ttsAudio.load();
+      audioWrap.style.display = "block";
+      downloadWav.href = bust;
+    }
+
+    function getFormJSON(form) {
+      const fd = new FormData(form);
+      const obj = {};
+      for (const [k, v] of fd.entries()) obj[k] = v;
+      return obj;
+    }
+
+    async function postJSON(url, bodyObj) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(bodyObj)
+      });
+      const data = await res.json();
+      return { ok: res.ok, data };
+    }
+
+    // 1) 生成视频：POST /video_generation (FormData)
+    document.getElementById('videoForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      setStatus("", false);
+
+      // 方案A：如果目标文本有，但 ref_audio 为空，提醒先点 TTS
+      const t = (targetTextEl.value || "").trim();
+      const ra = (refAudioInput.value || "").trim();
+      if (t && !ra) {
+        setStatus("你已经输入了目标文本，但 ref_audio 为空。\n请先点“仅测试 TTS 生成 wav”，系统会自动回填 ref_audio。");
+        return;
+      }
+
+      genBtn.disabled = true;
+      genBtn.textContent = "生成中...";
+
+      try {
+        const formData = new FormData(this);
+        const res = await fetch('/video_generation', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        console.log("后端返回:", data);
+
+        if (data.status === 'success') {
+          const videoEl = document.getElementById('outputVideo');
+          const newSrc = data.video_path + '?t=' + Date.now();
+          videoEl.src = newSrc;
+          videoEl.load();
+          videoEl.play().catch(() => {});
+          setStatus("视频生成成功。");
+        } else {
+          setStatus("视频生成失败：" + (data.error || "unknown"));
+          alert('视频生成失败！');
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus("请求出错：" + err);
+      } finally {
+        genBtn.disabled = false;
+        genBtn.textContent = "开始生成视频";
+      }
+    });
+
+    // 2) 仅测试 TTS：POST /api/tts (JSON) —— 方案A关键：成功后自动回填 ref_audio
+    document.getElementById('ttsBtn').addEventListener('click', async function () {
+      setStatus("", false);
+
+      ttsBtn.disabled = true;
+      ttsBtn.textContent = "TTS 合成中...";
+
+      try {
+        const form = document.getElementById('videoForm');
+        const obj = getFormJSON(form);
+
+        const text = (obj.target_text || "").trim();
+        if (!text) {
+          setStatus("请先在“目标文本”里输入要合成的内容。");
+          return;
+        }
+
+        const payload = {
+          text,
+          speaker_id: parseInt(obj.speaker_id || "0", 10),
+          out_name: "tts.wav"
+        };
+
+        const { ok, data } = await postJSON("/api/tts", payload);
+        console.log("TTS 返回:", data);
+
+        if (ok && data.status === "success" && data.audio_url) {
+          showAudio(data.audio_url);
+
+          // ⭐ 方案A：自动把后端可用路径写回 ref_audio（用于后续 generate_video）
+          // 优先用后端返回的 audio_path（例如：static/audios/tts.wav）
+          refAudioInput.value = data.audio_path || "static/audios/tts.wav";
+
+          setStatus("TTS 合成成功。\n已自动回填 ref_audio = " + refAudioInput.value + "\n现在可以点击“开始生成视频”。");
+        } else {
+          setStatus("TTS 失败：" + (data.error || "unknown"));
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus("TTS 请求出错：" + err);
+      } finally {
+        ttsBtn.disabled = false;
+        ttsBtn.textContent = "仅测试 TTS 生成 wav";
+      }
+    });
+  </script>
+</body>
+</html>
